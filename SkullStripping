@@ -1,0 +1,51 @@
+#!/bin/bash
+
+#---------------- Folder Arrangement ------------#
+#                  |- train                      #
+#         |- Data -|- test                       #
+# ~/home -|- Packages                            #
+#         |- Output -|- train                    #
+#                    |- test                     #
+#------------------------------------------------#
+
+
+root_path=${PWD}
+data_root=$root_path'/Data/'
+package_DIR=$root_path'/Packages/'
+
+output_path=$root_path'/Output/'
+train_output_path=$root_path'/Output/train/'
+test_output_path=$root_path'/Output/test/'
+
+#=========  skull stripping ========#
+echo "=============== begin skull stripping... ========"
+#----- processing training images
+cd $data_root'train/'
+echo $PWD
+subIDs=$(ls | grep ".*.nii")
+
+for subID in $subIDs 
+do
+	echo "Processing training image "$subID
+     input_file=$subID
+     output_file="${train_output_path}${input_file%%.*}" #suffix removed
+     bet $input_file $output_file'_after_stripped.nii.gz' -f 0.35 -B
+
+done
+
+#---- processing test images
+cd $data_root'test/'
+subIDs=$(ls | grep ".*.nii")
+
+for subID in $subIDs 
+do
+     echo "Processing test image "$subID
+     input_file=$subID
+     output_file="${test_output_path}${input_file%%.*}" #suffix removed
+     #skull stripping
+     bet $input_file $output_file'_after_stripped.nii.gz' -f 0.35 -B
+
+done
+
+#Please carefully check each extracted brain image visually using fsleyes to ensure the result is correct. If not, please use the strategies taught in Tutorial 1 and Lab 1 to do the adjustment.#
+echo "==================End of Skull Stripping======================="#

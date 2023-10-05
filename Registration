@@ -1,0 +1,95 @@
+#!/bin/bash
+
+#---------------- Folder Arrangement ------------#
+#                  |- train                      #
+#         |- Data -|- test                       #
+# ~/home -|- Packages                            #
+#         |- Output -|- train                    #
+#                    |- test                     #
+#------------------------------------------------#
+
+root_path=${PWD}
+data_root=$root_path'/Data/'
+package_DIR=$root_path'/Packages/'
+
+output_path=$root_path'/Output/'
+train_output_path=$root_path'/Output/train/'
+test_output_path=$root_path'/Output/test/'
+
+floImg=$package_DIR'MNI152_T1_1mm_brain.nii'
+aalImg=$package_DIR'aal.nii'
+
+#====================  registration =======================#
+echo "=============== begin registration... ========"
+
+#---- process training images
+cd $output_path'train/'
+subIDs=$(ls | grep ".*_after_stripped.nii.gz")
+for subID in $subIDs; do
+   echo "Processing training image "$subID
+   input_file=$subID
+   filename="${input_file%%.*}"
+   if [[ ! -f aal_to_"$filename"_transformed.nii.gz ]] #if the process has not already been done to completion
+   then
+      #affine registration
+      echo "Register MNI template using affine transform"
+      reg_aladin -ref $input_file -flo $floImg -res MNI152_to_"$filename"_affine.nii.gz -aff MNI152_to_"$filename"_affine.txt
+      #deformable registration
+      echo "Register MNI template using deformable transform"
+      reg_f3d -ref $input_file -flo $floImg -aff MNI152_to_"$filename"_affine.txt -res MNI152_to_"$filename"_deform.nii.gz -cpp MNI152_to_"$filename"_warpcoeff.nii.gz
+      #transform AAL atlas
+      echo "AAL to native space using deformable transform"
+      reg_resample -ref $input_file -flo $aalImg -res aal_to_"$filename"_transformed.nii.gz -trans MNI152_to_"$filename"_warpcoeff.nii.gz -inter 0
+
+   fi
+   if [[ -f aal_to_"$filename"_transformed.nii.gz ]]
+   then
+      echo "Finished processing "$input_file
+   fi
+
+done
+#remove files no longer needed
+mkdir Transitional_files -p
+for subID in $subIDs; do
+   echo "Cleaning up after "$subID
+   input_file=$subID
+   filename="${input_file%%.*}"
+   mv "$filename"_mask.nii.gz MNI152_to_"$filename"_affine.txt MNI152_to_"$filename"_affine.nii.gz MNI152_to_"$filename"_deform.nii.gz MNI152_to_"$filename"_warpcoeff.nii.gz Transitional_files
+done
+
+#---- process test images
+cd $output_path'test/'
+subIDs=$(ls | grep ".*_after_stripped.nii.gz")
+
+for subID in $subIDs; do
+   echo "Processing test image "$subID
+   
+   input_file=$subID
+   filename="${input_file%%.*}"
+   if [[ ! -f aal_to_"$filename"_transformed.nii.gz ]] #if the process has not already been done to completion
+   then
+      #affine registration
+      echo "Register MNI template using affine transform"
+      reg_aladin -ref $input_file -flo $floImg -res MNI152_to_"$filename"_affine.nii.gz -aff MNI152_to_"$filename"_affine.txt
+      #deformable registration
+      echo "Register MNI template using deformable transform"
+      reg_f3d -ref $input_file -flo $floImg -aff MNI152_to_"$filename"_affine.txt -res MNI152_to_"$filename"_deform.nii.gz -cpp MNI152_to_"$filename"_warpcoeff.nii.gz
+      #transform AAL atlas
+      echo "AAL to native space using deformable transform"
+      reg_resample -ref $input_file -flo $aalImg -res aal_to_"$filename"_transformed.nii.gz -trans MNI152_to_"$filename"_warpcoeff.nii.gz -inter 0
+
+   fi
+   if [[ -f aal_to_"$filename"_transformed.nii.gz ]]
+   then
+      echo "Finished processing "$input_file
+   fi
+done
+#remove files no longer needed
+mkdir Transitional_files -p
+for subID in $subIDs; do
+   echo "Cleaning up after "$subID
+   input_file=$subID
+   filename="${input_file%%.*}"
+   mv "$filename"_mask.nii.gz MNI152_to_"$filename"_affine.txt MNI152_to_"$filename"_affine.nii.gz MNI152_to_"$filename"_deform.nii.gz MNI152_to_"$filename"_warpcoeff.nii.gz Transitional_files
+done
+#==================== End of registration ===============#

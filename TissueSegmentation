@@ -1,0 +1,93 @@
+#!/bin/bash
+
+
+#---------------- Folder Arrangement ------------#
+#                  |- train                      #
+#         |- Data -|- test                       #
+# ~/home -|- Packages                            #
+#         |- Output -|- train                    #
+#                    |- test                     #
+#------------------------------------------------#
+
+
+root_path=${PWD}
+data_root=$root_path'/Data/'
+package_DIR=$root_path'/Packages/'
+
+output_path=$root_path'/Output/'
+train_output_path=$root_path'/Output/train/'
+test_output_path=$root_path'/Output/test/'
+
+#================== Grey matter segmentation ==========#
+echo "=============== begin grey matter segmentation...========"
+
+
+cd $output_path'train/'
+mkdir Transitional_files -p
+subIDs=$(ls | grep ".*_after_stripped.nii.gz")
+
+for subID in $subIDs 
+do
+	#----- processing training images
+	echo "Processing training image "$subID
+	file=$subID
+	filename="${file%%.*}"
+	if [[ ! -f "$filename"_greymatter_mask.nii.gz ]] 
+	then
+		#tissue segmentation
+		fast -S 1 -n 3 -t 1 -g -v -o $filename $filename.nii.gz
+		mv "$filename"_seg_0.nii.gz "$filename"_seg_2.nii.gz Transitional_files
+		mv "$filename"_seg_1.nii.gz "$filename"_greymatter_mask.nii.gz
+		rm "$filename"_pve*
+		
+		#To get the original data from the greymatter regions
+		# fslmaths "$filename"_greymatter_mask.nii.gz -mul "$filename".nii.gz "$filename"_greymatter.nii.gz
+	fi
+	if [[ -f "$filename"_greymatter_mask.nii.gz ]]
+	then
+		echo "Finished processing "$file
+	fi
+done
+for subID in $subIDs; do
+   echo "Cleaning up after "$subID
+   input_file=$subID
+   filename="${input_file%%.*}"
+   mv "$filename"_seg_0.nii.gz "$filename"_seg_2.nii.gz Transitional_files
+   mv $input_file "$filename"_mixeltype.nii.gz "$filename"_seg.nii.gz Transitional_files
+done
+
+
+
+cd $output_path'test/'
+subIDs=$(ls | grep ".*_after_stripped.nii.gz")
+mkdir Transitional_files -p
+for subID in $subIDs 
+do
+	#---- processing test images
+	echo "Processing test image "$subID
+	file=$subID
+	filename="${file%%.*}"
+	if [[ ! -f "$filename"_greymatter_mask.nii.gz ]] #if the process has not already been done to completion
+	then
+		#tissue segmentation
+		fast -S 1 -n 3 -t 1 -g -v -o $filename $filename.nii.gz
+		mv "$filename"_seg_0.nii.gz "$filename"_seg_2.nii.gz Transitional_files
+		mv "$filename"_seg_1.nii.gz "$filename"_greymatter_mask.nii.gz
+		rm "$filename"_pve*
+
+		#The original data from the greymatter regions
+		# fslmaths "$filename"_greymatter_mask.nii.gz -mul "$filename".nii.gz "$filename"_greymatter.nii.gz
+	fi
+	if [[ -f "$filename"_greymatter_mask.nii.gz ]]
+	then
+		echo "Finished processing "$file
+	fi
+done
+for subID in $subIDs; do
+   echo "Cleaning up after "$subID
+   input_file=$subID
+   filename="${input_file%%.*}"
+   mv $input_file "$filename"_mixeltype.nii.gz "$filename"_seg.nii.gz Transitional_files
+done
+#Please carefully check the segmented grey matter mask visually using fsleyes to ensure the result is correct.#
+#============= End of Grey matter segmentation=================#
